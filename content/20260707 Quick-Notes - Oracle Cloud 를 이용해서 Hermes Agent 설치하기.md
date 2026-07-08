@@ -12,11 +12,11 @@ type: "quick-notes"
 status: '"in-progress"  # to-do, in-progress, completed, abandoned'
 importance: 3  # 1~5 중요도
 created_at: 2026-07-07 12:29:17
-updated_at: 2026-07-08 22:04:50
+updated_at: 2026-07-08 22:45:46
 published_at:  # 발행 시 날짜 기입 (빈 값 = 미발행)
 author:
 ---
-폰
+
 # Quick-Notes - Oracle Cloud 를 이용해서 Hermes Agent 설치하기
 
 ## Date
@@ -1108,13 +1108,13 @@ ob login                              # Obsidian 계정 로그인(대화형)
 
 ```bash
 ob sync-list-remote                   # 계정의 원격(Sync) 볼트 목록
-ob sync-setup --vault "MyVault"          # 원격 볼트를 로컬 경로에 연결 (E2E 암호 설정 시 입력)
+ob sync-setup --vault "John"          # 원격 볼트를 로컬 경로에 연결 (E2E 암호 설정 시 입력)
 ob sync-list-local                    # 연결된 로컬 볼트 확인
-ob sync --path ~/obsidian/MyVault        # 1회 동기화 테스트
-ob sync-status --path ~/obsidian/MyVault
+ob sync --path ~/obsidian/John        # 1회 동기화 테스트
+ob sync-status --path ~/obsidian/John
 ```
 
-- 로컬 볼트 경로(예: `~/obsidian/MyVault`)가 **에이전트가 노트를 쓰는 위치**다.
+- 로컬 볼트 경로(예: `~/obsidian/John`)가 **에이전트가 노트를 쓰는 위치**다.
 
 #### 3) 상시 동기화 (systemd user 서비스)
 
@@ -1138,7 +1138,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=${MISE} exec -- ob sync --path %h/obsidian/MyVault --continuous
+ExecStart=${MISE} exec -- ob sync --path %h/obsidian/John --continuous
 Restart=always
 RestartSec=5
 WorkingDirectory=%h
@@ -1158,7 +1158,7 @@ systemctl --user status obsidian-sync.service
 > [Service]
 > Type=simple
 > Environment=PATH=%h/.local/share/mise/installs/node/lts/bin:/usr/local/bin:/usr/bin:/bin
-> ExecStart=%h/.local/share/mise/installs/node/lts/bin/ob sync --path %h/obsidian/MyVault --continuous
+> ExecStart=%h/.local/share/mise/installs/node/lts/bin/ob sync --path %h/obsidian/John --continuous
 > Restart=always
 > RestartSec=5
 > WorkingDirectory=%h
@@ -1169,7 +1169,7 @@ systemctl --user status obsidian-sync.service
 - **linger** 가 켜져 있어야 로그아웃 후에도 유지된다(4단계에서 설정).
 
 > [!tip] Hermes 에서 노트 쓰기
-> 에이전트에게 "결과를 `~/obsidian/MyVault/…` 에 마크다운으로 저장" 하도록 지시하면, `ob` 상시 동기화가 이를 감지해 **내 폰·PC 의 Obsidian 으로 전파**한다. 별도 "Obsidian CLI" 없이 파일 쓰기만으로 충분하다(프론트매터·위키링크도 그대로 파일에 기록). 충돌을 줄이려면 에이전트 전용 폴더(예: `00. Inbox/agent/`)에 쓰게 하는 것을 권장.
+> 에이전트에게 "결과를 `~/obsidian/John/…` 에 마크다운으로 저장" 하도록 지시하면, `ob` 상시 동기화가 이를 감지해 **내 폰·PC 의 Obsidian 으로 전파**한다. 별도 "Obsidian CLI" 없이 파일 쓰기만으로 충분하다(프론트매터·위키링크도 그대로 파일에 기록). 충돌을 줄이려면 에이전트 전용 폴더(예: `00. Inbox/agent/`)에 쓰게 하는 것을 권장.
 
 > [!warning] 보안·동기화 유의
 > - **양방향 동기화**: 서버 볼트가 곧 내 실제 볼트다. 에이전트가 기존 노트를 덮어쓰지 않도록 **쓰기 범위를 전용 폴더로 제한**하고, 중요한 변경은 검토 후 반영한다.
@@ -1346,7 +1346,7 @@ npx quartz plugin install --from-config
 ```bash
 # 예: 볼트의 'Blog' 폴더만 발행 대상으로 심볼릭 링크
 rm -rf content
-ln -s ~/MyVault/Blog content     # 볼트 경로·발행 폴더는 실제 환경에 맞게
+ln -s ~/John/Blog content     # 볼트 경로·발행 폴더는 실제 환경에 맞게
 
 # (대안) 특정 노트만 복사하는 스크립트를 두고 sync 전에 실행
 ```
@@ -1426,6 +1426,16 @@ jobs:
 
 3. 리포 **Settings → Pages → Source** 를 **GitHub Actions** 로 설정.
 
+> [!warning] 리포 생성 단계에서 자주 막히는 지점 (repo 만들기 전에 확인)
+> 1. **Fork 하지 말고 clone** — Quartz 원본을 **fork 하면 안 된다**(fork 는 private 전환 불가 + 이후 업데이트 pull 이 꼬인다). 위 1)단계 `git clone` 이 정답이며, 원본은 `upstream` 으로만 걸어 업데이트를 받는다.
+> ```bash
+>    git remote set-url origin https://github.com/<나>/<repo>.git   # 내 새 리포
+>    git remote add upstream https://github.com/jackyzha0/quartz.git # 업데이트 pull 용
+>    ```
+> 2. **리포 이름이 URL·`baseUrl` 을 결정** — `<username>.github.io` 로 만들면 **루트**(`https://<user>.github.io/`), 그 외 이름이면 **subpath**(`https://<user>.github.io/<repo>/`)로 나간다. subpath 인 경우 `quartz.config.ts` 의 `baseUrl` 에 **프로토콜 빼고 subpath 까지**(`<user>.github.io/<repo>`) 정확히 적어야 CSS·링크·이미지가 안 깨진다(가장 흔한 삽질).
+> 3. **무료 배포 = public 리포** — GitHub Pages 무료 배포는 **public 리포**에서만 된다(private 은 Pro 이상). 즉 발행 폴더 내용이 전부 공개되므로 위 [!danger] 의 발행 폴더 분리 원칙을 반드시 지킨다.
+> 4. **Workflow 쓰기 권한** — Settings → Pages Source 를 Actions 로 바꾸는 것(3)에 더해, **Settings → Actions → General → Workflow permissions 를 `Read and write`** 로 열어야 첫 배포가 성공한다. 안 되면 Actions 탭에서 실패 로그부터 확인.
+
 > [!warning] 버전에 따라 브랜치·설정이 다름 (설치 시 확인)
 > Quartz 는 버전(v4/v5)에 따라 **배포 브랜치명**(`v4`↔`v5`), Node 버전(22↔24), 플러그인 설치 단계(`npx quartz plugin install`), 설정 파일명(`quartz.config.ts`↔`quartz.config.yaml`)이 다르다. 설치한 리포의 **공식 [hosting 문서](https://quartz.jzhao.xyz/hosting)** 를 기준으로 `deploy.yml` 의 `branches`·`node-version`·설치 스텝을 맞춘다. (TODO: 실제 설치 버전으로 확정)
 
@@ -1442,6 +1452,51 @@ npx quartz sync     # 변경 커밋 + push → Actions 가 빌드·배포
 - **apex 도메인**: `A` 레코드를 GitHub IP 로 — `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
 - **서브도메인**: `CNAME` 을 `<user>.github.io` 로.
 - 도메인 변경 시 Quartz 설정의 **`baseUrl`** 도 함께 갱신한다.
+
+#### 7) (선택) 테마 적용 — Catppuccin (`saberzero1/quartz-themes`)
+
+[quartz-themes](https://github.com/saberzero1/quartz-themes) 는 300+개 팔레트를 Quartz 용 SCSS 테마로 포팅한 프로젝트다. `quartz.config.ts` 의 `theme.colors` 를 손으로 매핑하는 대신 **테마 이름 하나로 색상·컴포넌트 스타일까지 통째로 적용**한다.
+
+**Catppuccin 테마 이름(flavor)**
+
+| 이름 | 설명 |
+| --- | --- |
+| `catppuccin` | 기본 (라이트 = Latte / 다크 = Mocha) |
+| `catppuccin.frappe` | Frappé flavor |
+| `catppuccin.macchiato` | Macchiato flavor |
+
+적용 방법은 세 가지 중 하나를 쓴다.
+
+**방법 A — GitHub Actions (권장, 배포 시 자동 주입)**
+
+4)의 `deploy.yml` 을 편집한다. `permissions:` 위에 `env` 를 추가하고, **Build Quartz 스텝 앞**에 fetch 스텝을 넣는다. 테마 SCSS 를 리포에 커밋하지 않아도 매 빌드마다 자동 주입된다.
+
+```yaml
+env:
+  THEME_NAME: catppuccin        # 원하는 flavor 로 교체 (catppuccin.frappe 등)
+
+# ... jobs.build.steps 안, "Build Quartz" 앞에 추가 ...
+      - name: Fetch Quartz Theme
+        run: curl -s -S https://raw.githubusercontent.com/saberzero1/quartz-themes/master/action.sh | bash -s -- $THEME_NAME
+```
+
+**방법 B — 서버에서 스크립트로 직접 적용 (로컬 미리보기용)**
+
+```bash
+cd ~/quartz          # quartz 설치 경로
+curl -s -S -o action.sh https://raw.githubusercontent.com/saberzero1/quartz-themes/master/action.sh
+./action.sh catppuccin           # 또는 catppuccin.frappe / catppuccin.macchiato
+npx quartz build --serve         # 재빌드 후 확인
+```
+
+**방법 C — 수동**: 원하는 테마 디렉토리의 `_index.scss` 를 받아 `quartz/styles/themes/_index.scss` 에 두고, `custom.scss` 의 `@use "base";` 뒤에 `@use "themes";` 한 줄을 추가한다.
+
+> [!tip] 어떤 방법을 쓰나
+> - 발행 파이프라인이 GitHub Actions 기반이면 **A** 가 가장 깔끔하다(리포 오염 없음).
+> - 서버에서 미리보기하며 확정할 거면 **B**. 단 A/B 를 섞으면 로컬과 배포 결과가 갈릴 수 있으니 **한쪽으로 통일**한다.
+
+> [!note] `theme.colors` 수동 매핑과의 차이
+> 이 프로젝트 없이 `quartz.config.ts` 의 `theme.colors` 에 Catppuccin 팔레트(Latte/Mocha hex)를 직접 넣어도 **색상**은 적용된다. 다만 quartz-themes 는 색뿐 아니라 **컴포넌트 스타일까지 포함한 완성형 테마**라 더 일관된 결과가 나온다. 세밀한 색 커스터마이즈가 필요하면 수동 매핑, 손쉬운 완성형이면 quartz-themes 를 택한다.
 
 ---
 
@@ -1511,6 +1566,7 @@ sudo netfilter-persistent save   # 재부팅 후에도 유지
 - [Quartz — 공식 사이트/문서](https://quartz.jzhao.xyz/)
 - [Quartz — Hosting (GitHub Pages 배포)](https://quartz.jzhao.xyz/hosting)
 - [Quartz — GitHub 리포지토리](https://github.com/jackyzha0/quartz)
+- [saberzero1/quartz-themes — Quartz 테마 포팅 모음(Catppuccin 등)](https://github.com/saberzero1/quartz-themes)
 
 ---
 
@@ -1575,3 +1631,5 @@ sudo netfilter-persistent save   # 재부팅 후에도 유지
 - **v2.45 (2026-07-08, Claude Opus 4.8)**: Quota 생성 `NotAllowed`(403, "go to your home region") 대응 — Quota 도 홈 리전 전용이라 `oci limits quota create` 에 `--region "$HOME_REGION"` 부여, 홈 리전 전용 `[!important]` 안내 추가
 - **v2.46 (2026-07-08, Claude Opus 4.8)**: 리소스 리전(`REGION`)과 홈 리전(`HOME_REGION`) 구분 명확화 — 실측(홈 리전=Tokyo `ap-tokyo-1`, 인스턴스=Seoul/Osaka) 반영한 `[!note]` 추가. launch 는 `REGION`, Budget/Quota 는 `HOME_REGION` 을 쓴다는 관계를 정리
 - **v2.47 (2026-07-08, Claude Opus 4.8)**: 2.2 에 홈 리전 배경 `[!tip]` 추가 — 홈 리전은 계정 가입 시 고정(변경 불가)이며 본 계정은 Tokyo 로 생성·서버는 Seoul 이라 거버넌스(Budget/Quota)만 Tokyo 로 분리 호출되는 상황적 특이점을 설명, 신규 가입 시 홈 리전 신중 선택 권고
+- **v2.48 (2026-07-08, Claude Opus 4.8)**: 4.6 GitHub 리포 설정에 **리포 생성 단계 주의사항 `[!warning]` 추가** — ① Fork 금지·clone 후 `upstream` 원격으로 업데이트 pull, ② 리포 이름이 URL·`baseUrl`(루트 vs subpath)을 결정(프로토콜 빼고 subpath 까지 정확히), ③ 무료 배포는 public 리포 전용(발행 폴더 분리 원칙 재강조), ④ Actions Workflow permissions 를 Read and write 로 열어야 첫 배포 성공
+- **v2.49 (2026-07-08, Claude Opus 4.8)**: 4.6 에 **7) 테마 적용 — Catppuccin(`saberzero1/quartz-themes`)** 서브섹션 추가 — flavor 표(`catppuccin`/`.frappe`/`.macchiato`), 적용 3방법(A: deploy.yml `env.THEME_NAME`+action.sh fetch 스텝, B: 서버 `action.sh` 직접 실행, C: `_index.scss` 수동 배치+`@use "themes"`), A/B 혼용 주의·`theme.colors` 수동 매핑과의 차이 콜아웃. References 에 quartz-themes 리포 추가
