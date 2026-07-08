@@ -1433,7 +1433,7 @@ jobs:
         run: npx quartz build -v
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: public
 
@@ -1446,7 +1446,7 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 ```
 
 3. 리포 **Settings → Pages → Source** 를 **GitHub Actions** 로 설정.
