@@ -1,5 +1,14 @@
 ---
-title: Home
+title: 👋 어서 오세요
+tags: 
+aliases: 👋 어서 오세요
+type:
+status: completed
+importance: 3
+created_at: 2026-07-08 22:40:39
+updated_at: 2026-07-08 23:39:45
+published_at:
+author:
 ---
 
 # 👋 어서 오세요
