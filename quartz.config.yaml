@@ -264,8 +264,8 @@ plugins:
       subdir: plugin
     enabled: true
     options:
-      theme: rose-pine-moon
-      mode: dark
+      theme: kanagawa-paper
+      mode: light
   - source: github:quartz-community/obsidian-plugin-excalidraw
     enabled: true
     options:
