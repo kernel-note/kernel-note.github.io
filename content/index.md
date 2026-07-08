@@ -17,7 +17,7 @@ author:
 
 ## 🌱 요즘 심은 것
 
-- [[_Blog/20260707 Quick-Notes - Oracle Cloud 를 이용해서 Hermes Agent 설치하기|Oracle Cloud로 Hermes Agent 설치하기]] — 무료 티어 VM 위에 에이전트를 올린 기록
+- [[20260707 Quick-Notes - Oracle Cloud 를 이용해서 Hermes Agent 설치하기|Oracle Cloud로 Hermes Agent 설치하기]] — 무료 티어 VM 위에 에이전트를 올린 기록
 
 ## 🧭 둘러보기
 
