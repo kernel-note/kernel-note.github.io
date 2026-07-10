@@ -12,7 +12,7 @@ type: "quick-notes"
 status: '"in-progress"  # to-do, in-progress, completed, abandoned'
 importance: 3  # 1~5 중요도
 created_at: 2026-07-07 12:29:17
-updated_at: 2026-07-08 23:07:44
+updated_at: 2026-07-11 00:28:29
 published_at:  # 발행 시 날짜 기입 (빈 값 = 미발행)
 author:
 ---
@@ -101,15 +101,23 @@ Hermes, OpenClaw 를 개인 PC에 그대로 사용하면 안 되는 이유:
 - 한국의 경우 **Free Tier 계정으로는 리전 할당 불가** → 반드시 **유료 계정으로 전환** 필요.
 - 유료 계정 전환 후에도 **제한 조건에 맞는 리소스는 과금되지 않는다**고 하니 참고.
 
-> [!tip] 홈 리전은 계정 생성 시 고정 — 이 노트의 상황적 특이점
-> 이 계정은 **가입(Free Tier 생성) 시 홈 리전을 Tokyo(`ap-tokyo-1`)로 만들었고, 실제 서버는 Seoul 에 만들었다.** 그래서 아래와 같은 특이점이 생긴다:
-> - **홈 리전은 가입 시 정해지면 이후 변경 불가**하다. 인스턴스 같은 일반 리소스는 **구독된 다른 리전**(Seoul·Osaka 등)에 자유롭게 만들 수 있다.
-> - 하지만 **Budget·Quota 등 계정 거버넌스 서비스는 홈 리전(Tokyo)에서만** 동작한다 → 서버는 Seoul 인데 과금 가드는 Tokyo 로 호출해야 하는 **리전 분리 상황**이 발생.
-> - 자기 계정의 홈 리전은 `oci iam region-subscription list` 로 확인한다(2.3 의 `HOME_REGION`). 콘솔에서 새로 가입할 때 **원하는 홈 리전을 신중히 선택**한다(예: 서울 서비스 예정이면 홈도 Seoul 로 두면 이 분리가 없어짐).
+> [!tip] 홈 리전은 계정 생성 시 고정 — 그래서 전부 홈 리전(Tokyo)에 둔다
+> 이 계정은 **가입(Free Tier 생성) 시 홈 리전을 Tokyo(`ap-tokyo-1`)로 만들었다.** 처음엔 서버를 Seoul 에 만들었다가 디스크가 과금돼(아래 [!example] 참고) **전체를 홈 리전 Tokyo 로 통일**했다. 배경 규칙:
+> - **홈 리전은 가입 시 정해지면 이후 변경 불가**하다. 인스턴스 같은 일반 리소스는 구독된 다른 리전에도 만들 수 있지만, **스토리지 200GB·볼륨 백업 5개의 무료 자격은 홈 리전 전용**이라 비홈리전에 두면 과금된다.
+> - **Budget·Quota 등 계정 거버넌스 서비스도 홈 리전(Tokyo)에서만** 동작한다. 인스턴스까지 Tokyo 에 두면 `REGION = HOME_REGION` 이 되어 **리전 분리로 인한 과금·혼선이 모두 사라진다**.
+> - 자기 계정의 홈 리전은 `oci iam region-subscription list` 로 확인한다(2.3 의 `HOME_REGION`). 콘솔에서 새로 가입할 때 **원하는 홈 리전을 신중히 선택**한다(원하는 서비스 리전을 홈으로 두면 이 문제가 없어짐).
+
+> [!example]- 시행착오 기록 — Seoul 구축 → 디스크 과금 → Tokyo 전면 재구축 (실측)
+> **처음 구성**: 홈 리전은 **Tokyo(`ap-tokyo-1`)** 로 가입해 놓고, 인스턴스와 200GB 부트 볼륨은 **Seoul(`ap-seoul-1`)** 에 만들었다. 프리티어 한도(2 OCPU/12GB/200GB) 안에 맞췄는데도 3일 운용 후 **Block Storage 요금만** 발생(≈ SGD 1.19, 상세·금액검증은 2.3 5)의 [!bug] 참고).
+> **원인 — 무료 자격이 "홈 리전 전용"인 항목들**:
+> - **블록/부트 볼륨 200GB**: 홈 리전에서 만든 볼륨만 무료. 홈 리전 밖(Seoul)의 볼륨은 표준 요금 전액 과금.
+> - **볼륨 백업**: 무료 볼륨 백업은 **홈 리전 기준 총 5개까지만** 무료(부트+블록 합산). 홈 리전 밖 백업 역시 무료 대상이 아니다.
+> - (대조) **A1 컴퓨트**는 "월 1,500 OCPU 시간" 사용량 크레딧 방식이라 리전 제약이 사실상 없어 Seoul 에서도 무료였다 → 그래서 청구서가 Block Storage 에서만 나왔다.
+> **최종 결정**: 홈 리전은 가입 후 **변경 불가**하므로, "완전 무료"를 유지하려면 **모든 리소스를 홈 리전인 Tokyo(`ap-tokyo-1`)에 두는 수밖에 없다**. 이에 따라 인스턴스·부트볼륨·백업을 포함한 **전체 구성을 Tokyo 로 전면 재구축**하기로 변경했다(아래 절차의 `REGION` 을 `ap-tokyo-1` 로 두고 진행). Seoul/Osaka 를 쓰는 한 스토리지 과금은 구조적으로 불가피하다.
 
 ### 2.3 인스턴스 생성 (OCI CLI + 예산 한도 가드)
 
-콘솔 클릭 대신 **OCI CLI 로 Always Free A1(Ampere Arm) 인스턴스를 생성**하고, **예산(Budget) + 알림으로 과금 한도를 걸어** 실수 과금을 방지하는 방식으로 구성한다. **리전은 Seoul(`ap-seoul-1`) 을 기본**으로 하되, A1 용량 여유가 없으면 **Osaka(`ap-osaka-1`)** 로 전환한다. 부트 볼륨은 무료 한도 전량인 **200GB** 로 잡는다.
+콘솔 클릭 대신 **OCI CLI 로 Always Free A1(Ampere Arm) 인스턴스를 생성**하고, **예산(Budget) + 알림으로 과금 한도를 걸어** 실수 과금을 방지하는 방식으로 구성한다. **리전은 홈 리전인 Tokyo(`ap-tokyo-1`) 로 통일**한다 — Always Free 스토리지 200GB 의 무료 자격이 **홈 리전 전용**이라, 인스턴스·부트볼륨을 홈 리전에 둬야 디스크가 무료다(2.2 시행착오 참고). 부트 볼륨은 무료 한도 전량인 **200GB** 로 잡는다.
 
 > [!important] 과금 차단은 2단 방어 — Budget(알림) + Quota(차단)
 > 2.2 에서 보듯 한국은 **유료 계정 전환**이 필요하다. Always Free 한도 안의 리소스는 과금되지 않지만, **한도를 넘거나 실수로 유료 리소스를 만들면 종량 과금**이 된다. 방어는 두 겹으로 둔다:
@@ -150,8 +158,8 @@ oci iam region list --output table   # 인증 확인
 
 ```bash
 # ── 고정 입력값 (본인 환경에 맞게 한 번만 수정) ──────────────
-export REGION=ap-seoul-1                          # 용량 없으면 ap-osaka-1
-export SSH_KEY=~/.ssh/id_ed25519.pub              # 등록할 공개키
+export REGION=ap-tokyo-1                          # 홈 리전 = 스토리지 무료 자격(반드시 홈 리전에 생성)
+export SSH_KEY=$(realpath ~/.ssh/id_ed25519.pub)  # 등록할 공개키(절대경로로 해석)
 export EMAIL="you@example.com"                    # 예산 알림 수신 이메일
 export DISPLAY_NAME=hermes
 
@@ -198,11 +206,11 @@ echo "REGION=$REGION"; echo "AD=$AD"; echo "IMAGE=$IMAGE"; echo "SUBNET=$SUBNET"
 > - 위는 AD·서브넷의 **첫 번째 항목**을 자동 선택한다. 여러 개면 `--query 'data[].{name:"display-name",id:id}' --output table` 로 목록을 보고 원하는 값으로 `export` 를 덮어쓴다. `echo` 출력이 **비어 있으면**(권한/리전/미구독) 해당 리소스를 먼저 만들거나 리전을 확인한다.
 > - `export` 변수는 **현재 셸 세션에만 유지**된다. 새 터미널/재접속 시 2)를 다시 실행하거나, 위 블록을 `~/oci-env.sh` 로 저장해 `source ~/oci-env.sh` 로 불러온다.
 
-> [!note] 리소스 리전(`REGION`) ≠ 홈 리전(`HOME_REGION`)
-> 두 리전의 역할이 다르다. 이 계정 실측 예시로 정리하면:
-> - **`REGION`(리소스 리전)** = 인스턴스·VCN 등을 만드는 곳 → **Seoul(`ap-seoul-1`)**, 용량 없으면 **Osaka(`ap-osaka-1`)**. 구독된 리전이면 자유롭게 선택.
-> - **`HOME_REGION`(홈 리전)** = 계정 가입 시 고정되는 리전 → **Tokyo(`ap-tokyo-1`)**. **Budget·Quota 같은 계정 거버넌스는 홈 리전에서만** 생성된다(3단계 launch 는 `REGION`, 4·5단계 Budget/Quota 는 `HOME_REGION`).
-> - 즉 인스턴스가 Seoul 에 있어도 Budget/Quota 는 **Tokyo 로 호출**해야 한다. 두 값이 다를 수 있음을 전제로 명령마다 알맞은 `--region` 을 쓴다.
+> [!note] 이 구성에선 `REGION` = `HOME_REGION` (둘 다 Tokyo)
+> 원래 이 둘은 역할이 다른 별개 값이지만, **스토리지 무료 자격을 지키려 인스턴스도 홈 리전(Tokyo)에 두기로 했으므로 두 값이 같아진다**. 그래서 리전 분리로 인한 과금 함정(2.2 시행착오)이 사라진다.
+> - **`REGION`(리소스 리전)** = 인스턴스·VCN·부트볼륨을 만드는 곳 → **Tokyo(`ap-tokyo-1`)**. (Seoul·Osaka 등 비홈리전에 두면 볼륨이 표준 과금됨 — 2.2 참고)
+> - **`HOME_REGION`(홈 리전)** = 계정 가입 시 고정되는 리전 → **Tokyo(`ap-tokyo-1`)**. **Budget·Quota 같은 계정 거버넌스는 홈 리전에서만** 생성된다(3단계 launch·4·5단계 Budget/Quota 모두 Tokyo).
+> - 명령은 여전히 launch 에 `REGION`, Budget/Quota 에 `HOME_REGION` 을 쓰지만, 이 구성에선 두 변수가 같은 값(`ap-tokyo-1`)이라 결과가 동일하다. (Tokyo A1 용량이 없어 부득이 비홈리전을 써야 하면 아래 [!warning] 참고 — 스토리지 과금을 감수해야 한다.)
 
 #### 3) 인스턴스 launch (A1.Flex · 2 OCPU · 12GB)
 
@@ -228,7 +236,7 @@ echo "INSTANCE=$INSTANCE"
 - **Always Free 한도(현행, 2.1 참고)**: A1 은 **2 OCPU · 12GB** 상당, 부트 볼륨은 계정 총 **200GB** 내(인스턴스당 최소 47GB). 위 예시는 **2 OCPU / 12GB / 200GB**(무료 블록 볼륨 200GB 를 단일 인스턴스에 전량 할당).
   - 단일 A1 인스턴스에 200GB 를 다 쓰면 **추가 A1 인스턴스용 부트 볼륨 여유는 없다**(200GB 총량 소진). 인스턴스를 2개로 나눌 계획이면 볼륨을 나눠 배분한다.
   - (참고) 정책 변경 전에는 최대 4 OCPU/24GB 였다. 현재는 2/12 기준으로 잡는다.
-- **`--region`**: 프로파일 기본 리전과 다르면 위처럼 `--region` 을 명시한다. 기본은 **Seoul(`ap-seoul-1`)**, 용량이 없으면 **Osaka(`ap-osaka-1`)** 로 전환한다(아래 [!warning] 참고).
+- **`--region`**: 프로파일 기본 리전과 다르면 위처럼 `--region` 을 명시한다. 기본은 홈 리전 **Tokyo(`ap-tokyo-1`)** — 스토리지 무료 자격이 홈 리전 전용이기 때문이다. Tokyo A1 용량이 없을 때의 대응은 아래 [!warning] 참고(비홈리전 전환은 스토리지 과금 감수).
 - **SSH 키**: 2.4 의 1Password SSH-Agent 를 쓸 경우, 1Password 에서 공개키를 내보내 `--ssh-authorized-keys-file` 로 지정한다.
 - 생성 후 퍼블릭 IP 확인(변수로 캡처):
 
@@ -238,20 +246,24 @@ echo "INSTANCE=$INSTANCE"
   echo "SSH: ssh ubuntu@$PUBLIC_IP"
   ```
 
-> [!warning] "Out of host capacity" — Seoul → Osaka 리전 전환
-> Always Free A1 은 인기가 높아 `Out of host capacity` 로 실패하는 경우가 잦다. 우선 **Seoul(`ap-seoul-1`)** 에서 가용 도메인을 바꿔가며 재시도하되, **Seoul 에 여유가 없으면 Osaka(`ap-osaka-1`)** 로 전환해 생성한다(일본 리전은 상대적으로 여유가 있는 편).
+> [!warning] "Out of host capacity" — 홈 리전(Tokyo)에서 재시도가 원칙
+> Always Free A1 은 인기가 높아 `Out of host capacity` 로 실패하는 경우가 잦다. **스토리지 무료 자격이 홈 리전(Tokyo) 전용**이므로, **비홈리전으로 도망가지 말고 Tokyo(`ap-tokyo-1`) 안에서** 해결하는 것이 원칙이다:
+> - **가용 도메인(AD) 순회**: Tokyo 의 AD 를 바꿔가며 재시도한다(2)의 `AD` 자동선택은 첫 AD 만 잡으므로, `oci iam availability-domain list -c "$C" --region "$REGION" --output table` 로 목록을 보고 `export AD=...` 로 바꿔 3)을 재실행).
+> - **시간대를 바꿔 재시도**: A1 용량은 수시로 반환된다. 몇 시간~하루 간격으로 재시도하거나, 스크립트로 주기 재시도를 건다.
 >
-> **리전 전환 방법 — `REGION` 만 바꿔 2)부터 재실행**
-> 1. **리전 구독 확인/추가**: 다른 리전에 리소스를 만들려면 테넌시가 그 리전에 **구독**돼 있어야 한다. 콘솔 **Administration → Region Management** 에서 **Osaka(`ap-osaka-1`)** 를 구독한다(대부분 즉시 가능).
-> 2. **변수 리전만 교체 후 재조회**: OCID(AD·이미지·서브넷)는 **리전마다 다르므로**, `REGION` 을 바꾸고 **2)의 조회 블록을 다시 실행**하면 `AD/IMAGE/SUBNET` 이 Osaka 값으로 자동 갱신된다.
+> **비홈리전(Osaka 등)으로 전환하는 경우 — 스토리지 과금 감수**
+> Tokyo 에서 도저히 안 잡히면 Osaka(`ap-osaka-1`) 등으로 갈 수 있지만, **그 순간 부트/블록 볼륨은 무료 자격을 잃고 표준 과금**된다(2.2 시행착오·2.3 5) [!bug] 참고). 부득이 전환한다면 **부트 볼륨을 최소 47GB 로 줄여** 과금을 최소화한다(200GB × $0.0425 ≈ $8.5/월 → 47GB ≈ $2/월).
+> 1. **리전 구독 확인/추가**: 콘솔 **Administration → Region Management** 에서 대상 리전을 구독한다(대부분 즉시 가능).
+> 2. **변수 리전만 교체 후 재조회**: `REGION` 을 바꾸고 **2)의 조회 블록을 재실행**하면 `AD/IMAGE/SUBNET` 이 해당 리전 값으로 자동 갱신된다.
 > ```bash
 >    export REGION=ap-osaka-1
 >    # → 2)의 "리소스 OCID 자동 조회" 블록 재실행 (AD·IMAGE·SUBNET 자동 재캡처)
->    # Osaka 에 VCN/서브넷이 없으면 콘솔 VCN 마법사로 퍼블릭 서브넷 먼저 생성
+>    # 해당 리전에 VCN/서브넷이 없으면 콘솔 VCN 마법사로 퍼블릭 서브넷 먼저 생성
+>    # launch 시 --boot-volume-size-in-gbs 를 47 로 줄여 과금 최소화(무료 아님)
 >    ```
-> 3. **launch 재실행**: 3)의 launch 명령을 **그대로 다시 실행**한다(변수 참조라 수정 불필요).
+> 3. **launch 재실행**: 3)의 launch 명령을 다시 실행한다(볼륨 크기만 조정).
 >
-> - **주의**: 리전을 바꾸면 이후 Tailscale·SSH·접속 IP 등 **모든 후속 단계가 그 리전 인스턴스 기준**이 된다. Seoul/Osaka 중 **한쪽으로 확정**해 진행한다.
+> - **주의**: 리전을 바꾸면 이후 Tailscale·SSH·접속 IP 등 **모든 후속 단계가 그 리전 인스턴스 기준**이 된다. 한쪽으로 **확정**해 진행하고, 비홈리전 선택 시 **월 스토리지 과금이 지속됨**을 인지한다. `HOME_REGION`(Budget/Quota)은 여전히 Tokyo 이므로 이때는 `REGION ≠ HOME_REGION` 상태가 된다.
 
 #### 4) 예산(Budget) + 알림으로 과금 한도 가드
 
@@ -368,6 +380,30 @@ oci limits quota create \
 
 > [!warning] 쿼터 계열·명령 옵션은 확인 후 적용
 > 쿼터 **패밀리명/항목명**(`compute-core`·`standard-a1-core-count` 등)과 `oci limits quota create` 옵션은 리전·버전에 따라 다를 수 있다. 콘솔의 Quota Policies 편집기에서 **자동완성으로 유효한 이름**을 확인하거나 `oci limits quota create --help` 로 점검한 뒤 적용한다. (TODO: 실측 확정)
+
+> [!bug]- Block Storage 과금 원인 — 홈 리전 밖에 만든 부트 볼륨 (실측)
+> **증상**: 프리티어 한도 안(2 OCPU/12GB/200GB)으로 만들었는데도 3일 운용 후 과금 발생. 청구서상 **비용이 전부 `Block Storage`에서만** 나오고 `Compute`·`Telemetry`·`VCN`은 전부 0.00.
+>
+> | Date (GMT+9) | Jul 7 | Jul 8 | Jul 9 | Jul 10 | Total (SGD) |
+> | --- | --- | --- | --- | --- | --- |
+> | **Block Storage** | 0.33 | 0.38 | 0.38 | 0.09 | **1.19** |
+> | Compute / Telemetry / VCN | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+>
+> **원인**: Oracle의 **"Always Free 200GB 블록 스토리지"는 홈 리전(home region)에서 만든 볼륨에만 적용**된다. 공식 문서: *"To create an Always Free block volume, the volume must be created in the home region of the tenancy. Volumes created outside of the home region incur regular block volume costs."* 이 계정은 **홈 리전=Tokyo(`ap-tokyo-1`)** 인데 인스턴스·부트볼륨을 **Seoul(`ap-seoul-1`)** 에 만들었으므로(2.2·2.3 참고), Seoul의 200GB 부트 볼륨은 무료 할당을 **전혀 받지 못하고** 표준 요금으로 전량 과금된다.
+>
+> **왜 Compute 는 0원인가 — 적용 방식이 다르다**:
+> - **A1 컴퓨트**: "테넌시당 월 1,500 OCPU 시간 + 9,000 GB 시간 무료"라는 **월 사용량 크레딧** 방식 → 리전 제약이 사실상 없어 Seoul 에서도 무료(2 OCPU×24h×30일 ≈ 1,440 OCPU 시간 < 1,500).
+> - **블록 스토리지 200GB**: **"Always Free 리소스"** 방식 → **홈 리전 전용** → Seoul 은 과금.
+>
+> **금액 검증**: 표준 Balanced 부트 볼륨 ≈ $0.0425/GB·월(스토리지 $0.0255 + Balanced 성능 VPU 약 $0.017). 200GB × $0.0425 ≈ **$8.5/월 ≈ SGD 11.4/월 ≈ SGD 0.38/일** → 청구서 일 0.38 SGD 와 일치.
+>
+> **주의**: 5단계 Quota 의 `set block-storage quota total-storage-gb to 200` 은 **200GB 초과 생성만 차단**할 뿐 무료 자격(홈 리전 여부)과는 무관하다 → 이 과금을 막지 못한다.
+>
+> **해결**:
+> - **A. 홈 리전(Tokyo)에 재구축(권장)** — 인스턴스+부트볼륨을 `ap-tokyo-1` 에 재생성하면 200GB **완전 무료**. 단 Tokyo A1 용량 필요, Tailscale·SSH 등 후속 재설정.
+> - **B. Seoul 유지 + 볼륨 최소화** — 부트 볼륨을 최소 **47GB** 로 축소하면 47GB×$0.0425 ≈ **$2/월**로 감액(무료는 불가).
+> - **C. 현행 유지** — Seoul 200GB 그대로면 월 약 **SGD 11(≈$8.5)** 지속 과금.
+> - **핵심 트레이드오프**: 홈 리전은 Tokyo 로 고정(변경 불가)이라 "완전 무료"를 원하면 **모든 리소스를 Tokyo 에 두는 것**이 유일한 길이다. Seoul/Osaka 를 쓰는 한 스토리지 과금은 구조적으로 불가피하다.
 
 ### 2.4 인스턴스 접속 방식
 
@@ -1056,10 +1092,27 @@ Hermes 는 GitHub 리포지토리에서 스킬을 바로 설치할 수 있다(�
 hermes skills search google
 hermes skills inspect googleworkspace/cli/skills/gws-gmail  # 설치 전 내용 확인
 
-# 서비스별로 필요한 것만 설치 (최소 권한 원칙)
-hermes skills install googleworkspace/cli/skills/gws-gmail
-hermes skills install googleworkspace/cli/skills/gws-drive
-hermes skills install googleworkspace/cli/skills/gws-calendar
+# 필요한 스킬만 배열로 정의해 개별 설치 (최소 권한 원칙) — 이름만 추가/삭제하면 됨
+GWS_SKILLS=(
+  gws-gmail
+  gws-gmail-send
+  gws-calendar
+  gws-drive
+  gws-drive-upload
+  gws-docs
+  gws-sheets
+  gws-slides                     # 선택
+  gws-chat                       # 선택
+  gws-model-armor
+  gws-workflow-standup-report
+  gws-workflow-meeting-prep
+  gws-workflow-weekly-digest
+  gws-persona-executive-assistant
+  gws-auth
+)
+for s in "${GWS_SKILLS[@]}"; do
+  hermes skills install "googleworkspace/cli/skills/$s" || echo "  ↳ 실패: $s (식별자 확인 필요)"
+done
 
 # 리포 전체를 tap 으로 구독해두고 업데이트를 추적할 수도 있다
 hermes skills tap add googleworkspace/cli
@@ -1346,7 +1399,7 @@ npx quartz plugin install --from-config
 ```bash
 # 예: 볼트의 'Blog' 폴더만 발행 대상으로 심볼릭 링크
 rm -rf content
-ln -s ~/John/Blog content     # 볼트 경로·발행 폴더는 실제 환경에 맞게
+ln -s ~/Blog content     # 볼트 경로·발행 폴더는 실제 환경에 맞게
 
 # (대안) 특정 노트만 복사하는 스크립트를 두고 sync 전에 실행
 ```
@@ -1591,7 +1644,10 @@ sudo netfilter-persistent save   # 재부팅 후에도 유지
 - [Hermes Agent — OAuth over SSH / Remote Hosts](https://hermes-agent.nousresearch.com/docs/guides/oauth-over-ssh)
 - [Cloud Free Tier | Oracle 대한민국](https://www.oracle.com/kr/cloud/free/#always-free)
 - [Oracle Cloud Infrastructure - always free 검색](https://cloud.oracle.com/search/documentation?q=always+free&region=ap-tokyo-1)
-- [Always Free Resources (OCI 공식 문서)](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm)
+- [Always Free Resources (OCI 공식 문서)](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm) — Always Free 블록 스토리지는 **홈 리전 볼륨만** 무료
+- [Block Volumes FAQ | Oracle](https://www.oracle.com/cloud/storage/block-volumes/faq/)
+- [Block Volume Performance (VPU·Balanced)](https://docs.oracle.com/en-us/iaas/Content/Block/Concepts/blockvolumeperformance.htm)
+- [Cloud Customer Connect — Moving to Pay As You Go account costs](https://community.oracle.com/customerconnect/discussion/737721/moving-to-the-pay-as-you-go-account-from-always-free-tier-costs)
 - [Running Commands on an Instance (Run Command)](https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/runningcommands.htm)
 - [OCI CLI — 설치](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm)
 - [OCI CLI — `compute instance launch`](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/compute/instance/launch.html)
@@ -1686,4 +1742,8 @@ sudo netfilter-persistent save   # 재부팅 후에도 유지
 - **v2.47 (2026-07-08, Claude Opus 4.8)**: 2.2 에 홈 리전 배경 `[!tip]` 추가 — 홈 리전은 계정 가입 시 고정(변경 불가)이며 본 계정은 Tokyo 로 생성·서버는 Seoul 이라 거버넌스(Budget/Quota)만 Tokyo 로 분리 호출되는 상황적 특이점을 설명, 신규 가입 시 홈 리전 신중 선택 권고
 - **v2.48 (2026-07-08, Claude Opus 4.8)**: 4.6 GitHub 리포 설정에 **리포 생성 단계 주의사항 `[!warning]` 추가** — ① Fork 금지·clone 후 `upstream` 원격으로 업데이트 pull, ② 리포 이름이 URL·`baseUrl`(루트 vs subpath)을 결정(프로토콜 빼고 subpath 까지 정확히), ③ 무료 배포는 public 리포 전용(발행 폴더 분리 원칙 재강조), ④ Actions Workflow permissions 를 Read and write 로 열어야 첫 배포 성공
 - **v2.49 (2026-07-08, Claude Opus 4.8)**: 4.6 에 **7) 테마 적용 — Catppuccin(`saberzero1/quartz-themes`)** 서브섹션 추가 — flavor 표(`catppuccin`/`.frappe`/`.macchiato`), 적용 3방법(A: deploy.yml `env.THEME_NAME`+action.sh fetch 스텝, B: 서버 `action.sh` 직접 실행, C: `_index.scss` 수동 배치+`@use "themes"`), A/B 혼용 주의·`theme.colors` 수동 매핑과의 차이 콜아웃. References 에 quartz-themes 리포 추가
+- **v2.51 (2026-07-10, Claude Opus 4.8)**: 2.3 뒤에 **Block Storage 과금 원인 규명 `[!bug]` 추가**(실측) — 3일 운용 후 청구가 전부 Block Storage 에서만 발생(Compute·Telemetry·VCN=0)한 원인이 **부트 볼륨 200GB 를 홈 리전(Tokyo) 밖 Seoul 에 생성**한 것임을 확정. Always Free 200GB 는 홈 리전 볼륨만 적용(비홈리전=표준 과금)이고, A1 컴퓨트는 월 사용량 크레딧(1,500 OCPU 시간) 방식이라 리전 무관 무료라는 차이 설명. 금액 검증($0.0425/GB·월≈SGD 0.38/일 일치), Quota `total-storage-gb` 는 무료 자격과 무관함을 명시, 해결안(Tokyo 재구축/47GB 축소/현행 유지) 정리. References 에 Block Volumes FAQ·VPU·PAYG 논의 추가
+- **v2.54 (2026-07-10, Claude Opus 4.8)**: 4.2 방법 A 스킬 설치 예시를 **배열 루프로 정리** — 개별 3줄(gmail/drive/calendar) 나열을 `GWS_SKILLS` 배열 + `for` 루프로 교체해, 필요한 gws 스킬(gmail·gmail-send·calendar·drive·drive-upload·docs·sheets·slides·chat·model-armor·workflow 3종·persona-executive-assistant·auth)을 이름만 추가/삭제로 개별 설치. 설치 실패 시 식별자 확인 안내 출력(`|| echo`) 추가
+- **v2.53 (2026-07-10, Claude Opus 4.8)**: **2.3 절차 기본 리전을 Seoul → 홈 리전 Tokyo(`ap-tokyo-1`)로 전면 변경** — 스토리지 무료 자격이 홈 리전 전용이라 인스턴스·부트볼륨도 홈 리전에 두도록 통일. `export REGION`, 2.3 리드 문장, `--region` 설명, `REGION`=`HOME_REGION` 관계 `[!note]`, 2.2 `[!tip]` 을 Tokyo 기준으로 갱신. "Out of host capacity" `[!warning]` 을 재작성 — Seoul→Osaka 자유 전환(둘 다 무료) 전제를 폐기하고, 홈 리전 내 AD 순회·시간대 재시도를 원칙으로, 비홈리전 전환은 스토리지 과금 감수(부트볼륨 47GB 축소 권고)로 정정. 실측 시행착오·과금분석 `[!example]`/`[!bug]` 은 이력 기록으로 보존
+- **v2.52 (2026-07-10, Claude Opus 4.8)**: 2.2 에 **시행착오 기록 `[!example]` 추가** — 홈 리전(Tokyo)과 다른 Seoul 에 인스턴스·200GB 부트볼륨을 만들어 Block Storage 과금이 발생한 실측 경위 요약. Always Free 볼륨 200GB·볼륨 백업(총 5개)이 모두 홈 리전 전용 무료 자격임을 명시(백업 5개 한도는 Oracle 공식 문서로 확인), A1 컴퓨트는 사용량 크레딧이라 리전 무관 무료였던 대조 설명. 홈 리전 변경 불가 → 전체 구성을 Tokyo(`ap-tokyo-1`)로 전면 재구축하기로 한 최종 결정 반영
 - **v2.50 (2026-07-08, Claude Opus 4.8)**: 4.6 4)에 **Deploy Key 로 push 인증 `[!tip]` 추가** — 계정 전체 키/PAT 대신 리포 단위 SSH Deploy Key 로 최소 권한 격리(1장 취지 부합). 서버 전용 키 생성(`ssh-keygen ed25519`)·GitHub Deploy Key 등록(Allow write access 필수)·remote SSH URL 전환·`git config --local core.sshCommand`(`IdentitiesOnly=yes`)로 이 리포에서만 해당 키 사용(1Password agent 충돌 차단)·인증 확인 절차. Deploy Key vs PAT·키 재사용 불가 주의 정리
